@@ -5,6 +5,7 @@ import android.graphics.*;
 import android.util.*;
 import android.view.*;
 import android.view.ViewGroup.*;
+import java.util.*;
 
 public class PixelCanvas2 extends View {
     private Bitmap bitmap;
@@ -12,6 +13,7 @@ public class PixelCanvas2 extends View {
     private int sizeX = 20;
     private int sizeY = 20;
     private int minSize = 200; // wrap_content 的最小宽高 200dp
+	private int pixelSize = 1;
 
     public PixelCanvas2(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -36,6 +38,26 @@ public class PixelCanvas2 extends View {
 		paint.setFilterBitmap(false);  // 禁用双线性过滤，启用邻近像素模式
 		paint.setAntiAlias(false);     // 禁用抗锯齿
 	}
+	
+	// 设置每个像素点颜色
+    public void setPixelColor(int x, int y, int color) {
+		int oldColor = paint.getColor();
+        paint.setColor(color);
+        bitmap.setPixel(x, y, color);
+        invalidate(); // 刷新视图
+		paint.setColor(oldColor);
+    }
+	
+	public void setPixelsColor(int startX, int startY, int width, int height, int color) {
+		int[] colors = new int[width * height];
+		// 填充颜色数组
+		Arrays.fill(colors, color);
+
+		// 一次性将颜色数组应用到 bitmap 上的指定区域
+		bitmap.setPixels(colors, 0, width, startX, startY, width, height);
+		invalidate(); // 刷新视图
+	}
+	
 
 	@Override
 	protected void onDraw(Canvas canvas) {

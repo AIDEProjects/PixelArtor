@@ -8,10 +8,13 @@ import android.view.KeyEvent;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.graphics.*;
+import com.goldsprite.customanimator.*;
+import com.goldsprite.util.*;
 
 public class CommandLineView extends EditText {
 
-    private PixelCanvas pixelCanvas;
+    private PixelCanvas2 pixelCanvas;
 
     public CommandLineView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -37,7 +40,7 @@ public class CommandLineView extends EditText {
 			});
     }
 
-    public void setPixelCanvas(PixelCanvas pixelCanvas) {
+    public void setPixelCanvas(PixelCanvas2 pixelCanvas) {
         this.pixelCanvas = pixelCanvas;
     }
 
@@ -47,30 +50,17 @@ public class CommandLineView extends EditText {
 
         String instruction = parts[0];
         switch (instruction) {
-            case "setCanvasSize":
-                if (parts.length == 3) {
-                    try {
-                        int width = Integer.parseInt(parts[1]);
-                        int height = Integer.parseInt(parts[2]);
-                        if (pixelCanvas != null) {
-                            pixelCanvas.setCanvasSize(width, height);
-                        }
-                    } catch (NumberFormatException e) {
-                        // 处理无效的数字格式
-                    }
-                }
-                break;
-            case "setPixelColor":
+			case "setPixelColor":
                 if (parts.length == 4) {
                     try {
                         int x = Integer.parseInt(parts[1]);
                         int y = Integer.parseInt(parts[2]);
-                        int color = Integer.parseInt(parts[3], 16); // 解析十六进制颜色
+                        int color = Color.parseColor(parts[3]); // 解析十六进制颜色
                         if (pixelCanvas != null) {
                             pixelCanvas.setPixelColor(x, y, color);
                         }
-                    } catch (NumberFormatException e) {
-                        // 处理无效的数字格式
+                    } catch (Exception e) {
+						AppLog.dialog("", Log.getStackTraceStr(e));
                     }
                 }
                 break;
