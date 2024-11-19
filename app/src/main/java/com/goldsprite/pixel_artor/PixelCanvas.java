@@ -85,31 +85,21 @@ public class PixelCanvas extends View {
 	private long flushDebugTxtInterval = 300;//ms
 	private Runnable flushDebugTxtRunnable = new Runnable(){
 		public void run(){
-			/*MainActivity.setDebugTxt(
-			 1, 
-			 "触摸操作Id: " + actionStr
-			 + "\npointerCount: " + pointerCount
-			 );
-			 MainActivity.setDebugTxt(
-			 2, 
-			 debugTxt2
-			 );
-			 MainActivity.setDebugTxt(
-			 3, 
-			 "isTouchDraw: " + isTouchDraw
-			 + ", currentDrawColor: " + drawColor
-			 + "\nisEnterDrawingTaskRunning: " + isEnterDrawingTaskRunning
-			 + ", drawing: " + drawing
-			 + ", drawingEnterDelay: " + drawingEnterDelay
-			 );*/
-			/*MainActivity.setDebugTxt(
-			 3, 
-			 "画布偏移: " + canvasOffsetX + ", " + canvasOffsetY
-			 + "\n缩放因子: " + sclFactor
-			 );*/
+			MainActivity.setDebugTxt(
+				1, 
+				""
+			);
+
 			postDelayed(this, flushDebugTxtInterval);
 		}
 	};
+
+	//撤销相关
+	private enum DrawType{
+		Draw, Eraser
+		}
+	private Stack<DrawOperators> drawHistories = new Stack<>();
+	private int drawHistoryIndex = 0;
 
 
     public PixelCanvas(Context context, AttributeSet attrs) {
@@ -127,7 +117,7 @@ public class PixelCanvas extends View {
 		canvasData = new CanvasData();
 		// 创建 Bitmap，并填充为绿色背景
 		bitmap = Bitmap.createBitmap(xCount, yCount, Bitmap.Config.ARGB_8888);
-		//bitmap.eraseColor(Color.BLUE); // 设置背景色为绿色
+		bitmap.eraseColor(Color.TRANSPARENT); //清屏透明色以初始化(否则是-65536)
 
 		// 初始化 Paint
 		paint = new Paint();
@@ -254,6 +244,7 @@ public class PixelCanvas extends View {
 				if (touchAction == MotionEvent.ACTION_UP){
 					pointerCount = 0;
 					drawing = false;
+					drawHistoryIndex++;//封档此条历史线
 				}
 			}
 
@@ -268,9 +259,8 @@ public class PixelCanvas extends View {
 					if (pointerCount == 2){
 						movingDoubleCenterX = touchX + (touchX2 - touchX) / 2;
 						movingDoubleCenterY = touchY + (touchY2 - touchY) / 2;
-						movingDoubleCenterX /= sclFactor;
-						movingDoubleCenterY /= sclFactor;
-						//movingDoubleCenterY = getHeight() -( ev.getY(0) + (ev.getY(1) - ev.getY(0)) / 2);
+						//movingDoubleCenterX /= sclFactor;
+						//movingDoubleCenterY /= sclFactor;
 					}
 					//记录基准点：第二指按下时记录中心点为基准点
 					if (touchAction == MotionEvent.ACTION_POINTER_2_DOWN){
@@ -279,6 +269,8 @@ public class PixelCanvas extends View {
 						//减去开始时画布已有偏移
 						startMovingCenterX -= canvasOffsetX;
 						startMovingCenterY -= canvasOffsetY;
+						//startMovingCenterX -= canvasOffsetX * sclFactor;
+						//startMovingCenterY -= canvasOffsetY * sclFactor;
 					}
 					//更新移动: 双指滑动且移动画布开启
 					if (
@@ -289,8 +281,10 @@ public class PixelCanvas extends View {
 							lastMovingDoubleCenterX = movingDoubleCenterX;
 							lastMovingDoubleCenterY = movingDoubleCenterY;
 							translating = true;
-							canvasOffsetX = movingDoubleCenterX - startMovingCenterX;
-							canvasOffsetY = movingDoubleCenterY - startMovingCenterY;
+							canvasOffsetX = (movingDoubleCenterX - startMovingCenterX);
+							canvasOffsetY = (movingDoubleCenterY - startMovingCenterY);
+							//canvasOffsetX = (movingDoubleCenterX - startMovingCenterX)/sclFactor;
+							//canvasOffsetY = (movingDoubleCenterY - startMovingCenterY)/sclFactor;
 							invalidate();
 						}
 					}
@@ -367,16 +361,67 @@ public class PixelCanvas extends View {
 	}
 
 	//设置像素点颜色, LU坐标系
-    public void setPixelColor(int x, int y, String colorStr) {
-		setPixelsColor(x, y, 1, 1, colorStr);
+    public void setPixelColor(int x, int y, String colorStr){
+		setPixelColor(x, y, colorStr, false);
+	}
+    public void setPixelColor(int x, int y, String colorStr, boolean isUndo) {
+		setPixelsColor(x, y, 1, 1, colorStr, isUndo);
 	}
 	public void setPixelsColor(int startIndexX, int startIndexY, int width, int height, String colorStr) {
+		setPixelsColor(startIndexX, startIndexY, width, height, colorStr, false);
+	}
+	public void setPixelsColor(int startIndexX, int startIndexY, int width, int height, String colorStr, boolean isUndo) {
 		try{
 			//限制越界
-			startIndexX = Math.max(0, Math.min(xCount - 1, startIndexX));
-			startIndexY = Math.max(0, Math.min(yCount - 1, startIndexY));
+			if (width <= 0 || height <= 0){
+				//AppLog.toast("错误：绘制区域越界");
+				return;
+			}
+			if (startIndexX < 0 || startIndexY < 0){
+				//AppLog.toast("错误：绘制区域越界");
+				return;
+			}
+			if (startIndexX + width - 1 > xCount - 1 || startIndexY + height - 1 > yCount - 1){
+				//AppLog.toast("错误：绘制区域越界");
+				return;
+			}
 
 			int color = Color.parseColor(colorStr);
+
+			//如果不是撤销(即正常绘制)则记录历史数据
+			if (!isUndo){
+				int oldColor = bitmap.getColor(startIndexX, startIndexY).toArgb();
+				//当颜色改变时
+				if (color != oldColor){
+					DrawType drawType = Color.alpha(color) == 0 ?DrawType.Eraser : DrawType.Draw;
+					String oldColorStr = String.format("#%08X", oldColor);
+					DrawOperator drawHistoryData = new DrawOperator(
+						startIndexX, startIndexY, 
+						width, height, 
+						oldColorStr
+					);
+					boolean create = false;
+					//如果越界或绘制类型改变则创建新的
+					if (drawHistoryIndex > drawHistories.size() - 1){
+						create = true;
+					}
+					else if (!drawType.equals(drawHistories.get(drawHistoryIndex).drawType)){
+						create = true;
+					}
+					if (create){
+						DrawOperators newDrawHistory = new DrawOperators();
+						newDrawHistory.drawType = drawType;
+						drawHistories.push(newDrawHistory);
+						drawHistoryIndex = drawHistories.size() - 1;
+						AppLog.toast("创建新历史线");
+					}
+					//获取当前线历史并添加此次点
+					DrawOperators drawHistory = drawHistories.get(drawHistoryIndex);
+					drawHistory.push(drawType, drawHistoryData);
+					AppLog.toast("记录1次历史操作");
+				}
+			}
+
 			if (width * height == 1){
 				bitmap.setPixel(startIndexX, startIndexY, color);
 			}else{
@@ -392,6 +437,20 @@ public class PixelCanvas extends View {
 		}
 	}
 
+
+	public void undo(){
+		if (drawHistories.size() <= 0){
+			AppLog.toast("无可撤销操作");
+			return;
+		}
+		DrawOperators drawHistory = drawHistories.pop();
+
+		while (drawHistory.pixelData.size() > 0){
+			DrawOperator iobj = drawHistory.pixelData.pop();
+			setPixelsColor(iobj.x, iobj.y, iobj.width, iobj.height, iobj.colorStr, true);
+		}
+		AppLog.toast("撤销1条历史线");
+	}
 
 	public void save(String path){
 		try{
@@ -494,6 +553,28 @@ public class PixelCanvas extends View {
 		return dp;
         //return (int) (dp * getResources().getDisplayMetrics().density);
     }
+
+
+	public class DrawOperators {
+		public DrawType drawType;
+		public Stack<DrawOperator> pixelData = new Stack<>();
+
+		public void push(DrawType drawType, DrawOperator pixelData){
+			this.drawType = drawType;
+			this.pixelData.push(pixelData);
+		}
+	}
+	public class DrawOperator{
+		public int x, y, width, height;
+		public String colorStr;
+
+		public DrawOperator(){}
+		public DrawOperator(int x, int y, int width, int height, String coloStr){
+			this.x = x;this.y = y;
+			this.width = width;this.height = height;
+			this.colorStr = coloStr;
+		}
+	}
 
 
 }

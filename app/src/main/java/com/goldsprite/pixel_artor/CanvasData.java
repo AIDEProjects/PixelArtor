@@ -44,6 +44,9 @@ public class CanvasData {
 	
 	public int parsePixelData(String si)
 	{
+		if("0".equals(si)){
+			return Color.TRANSPARENT;
+		}
 		String[] di = si.split("#");
 		int alpha = Integer.parseInt(di[0]);
 		int index = Integer.parseInt(di[1]);
@@ -51,15 +54,16 @@ public class CanvasData {
 		int argb = alpha<<24 | hexcolor;
 		return argb;
 	}
+	
 
     // 保存像素数据
-    public void savePixelData(int x, int y, int alpha, int colorIndex) {
+    /*public void savePixelData(int x, int y, int alpha, int colorIndex) {
 		savePixelData(x, y, 1, 1, alpha, colorIndex);
 	}
     public void savePixelData(int startX, int startY, int width, int height, int alpha, int colorIndex) {
         String pixelInfo = alpha + "#" + colorIndex;
         //pixelData.add(pixelInfo);
-    }
+    }*/
 
 	public void saveCanvasData(Bitmap bitmap) {
 		pixelData = "";  // 清空现有数据
@@ -68,7 +72,7 @@ public class CanvasData {
 		int height = bitmap.getHeight();
 
 		// 遍历每个像素点
-		for (int y = 0; y < height; y++) {  // 从底部往上遍历
+		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				int color = bitmap.getPixel(x, y);
 				int alpha = (color >> 24) & 0xFF;  // 提取 alpha 值
