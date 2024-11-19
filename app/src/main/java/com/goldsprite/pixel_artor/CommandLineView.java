@@ -20,9 +20,15 @@ import android.widget.TextView;
 import java.lang.reflect.Method;
 import java.lang.reflect.*;
 
+import com.goldsprite.methodhandleexecutor.core.MethodHandleExecutor;
+
+
 public class CommandLineView extends EditText {
 
     private PixelCanvas2 pixelCanvas;
+	
+	private MethodHandleExecutor mhExec;
+	
 
     public CommandLineView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -35,6 +41,7 @@ public class CommandLineView extends EditText {
     }
 
     private void init() {
+		
 		this.setOnEditorActionListener(new TextView.OnEditorActionListener() {
 				@Override
 				public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
@@ -50,9 +57,17 @@ public class CommandLineView extends EditText {
 
     public void setPixelCanvas(PixelCanvas2 pixelCanvas) {
         this.pixelCanvas = pixelCanvas;
+		mhExec = new MethodHandleExecutor(pixelCanvas);
     }
+	
+	private void handleCommand(String commandLine){
+		mhExec.executeCommand(commandLine);
+	}
 
-    private void handleCommand(String command) {
+    private void handleCommandOld(String command) {
+		String fMethodName = "未找到";
+		boolean paramMatch = false;
+		
         String[] parts = command.split(" ");
         if (parts.length < 1 || pixelCanvas == null) return;
 
@@ -61,25 +76,36 @@ public class CommandLineView extends EditText {
         for (int i = 1; i < parts.length; i++) {
             args[i - 1] = parts[i];
         }
-		
+
 		Method[] methods = PixelCanvas2.class.getMethods();
 		for (Method method : methods) {
 			try{
-				if (method.getName().equals(methodName) && method.getParameterCount() == args.length) {
-					Class<?>[] paramTypes = method.getParameterTypes();
-					Object[] parsedArgs = new Object[args.length];
+				if (method.getName().equals(methodName)) {
+					fMethodName = method.getName();
+					if(method.getParameterCount() == args.length){
+						paramMatch = true;
+						Class<?>[] paramTypes = method.getParameterTypes();
+						Object[] parsedArgs = new Object[args.length];
 
-					for (int i = 0; i < args.length; i++) {
-						parsedArgs[i] = convertToType(args[i], paramTypes[i]);
+						for (int i = 0; i < args.length; i++) {
+							parsedArgs[i] = convertToType(args[i], paramTypes[i]);
+						}
+
+						method.invoke(pixelCanvas, parsedArgs);
+						return;
 					}
-
-					method.invoke(pixelCanvas, parsedArgs);
-					return;
 				}
 			}catch (Exception e){
+				AppLog.dialog("handleCommand异常", Log.getStackTraceStr(e));
 			}
 		}
 		AppLog.toast("Error: Method not found or parameters do not match.");
+		AppLog.dialog(
+			"解析指令失败，详细：", 
+			""
+			+"方法名："+ fMethodName
+			+"参数匹配："+ paramMatch
+			);
     }
 
     private Object convertToType(String arg, Class<?> type) {

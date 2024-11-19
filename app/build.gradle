@@ -53,6 +53,8 @@ android {
 
 dependencies {
 	compile fileTree(dir: 'libs', include: ['*.jar'])
+	//compile "com.github.AIDEProjects:MethodHandleExecutor:main"
+	compile project(":storage/emulated/0/AppProjects/Libs/MethodHandleExecutor")
 	
 	// kotlin库如果类冲突，取消下一行注释
 	// api "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.0"

@@ -7,6 +7,7 @@ import java.nio.file.*;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.File;
+import java.io.*;
 
 public class Files {
 
@@ -35,4 +36,21 @@ public class Files {
 			AppLog.dialog("写入文件失败: ", Log.getStackTraceStr(e));
 		}
 	}
+	
+	public static String readString(String filePath) {
+		StringBuilder str = new StringBuilder();
+		try {
+			File file = new File(filePath);
+			BufferedReader br = new BufferedReader(new FileReader(file));
+			String line;
+			while ((line = br.readLine()) != null) {
+				str.append(line).append("\n");
+			}
+			br.close();
+		} catch (Exception e) {
+			AppLog.dialog("读取文件失败: ", Log.getStackTraceStr(e));
+		}
+		return str.toString();
+	}
+	
 }

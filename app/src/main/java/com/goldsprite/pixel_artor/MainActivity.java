@@ -5,6 +5,7 @@ import android.os.*;
 import android.view.*;
 import android.graphics.*;
 import com.goldsprite.customanimator.*;
+import com.goldsprite.util.*;
 
 public class MainActivity extends Activity 
 {
@@ -16,7 +17,18 @@ public class MainActivity extends Activity
         super.onCreate(savedInstanceState);
         AppLog.setCtx(this);
 		setContentView(R.layout.main); // 确保使用正确的布局文件名
+		
+		/*Thread.currentThread().setDefaultUncaughtExceptionHandler(
+			new Thread.UncaughtExceptionHandler(){
+				@Override
+				public void uncaughtException(Thread t, Throwable e)
+				{
+					Log.logErr(t.getName(), e);
+				}
 
+			}
+		);*/
+		
         pixelCanvas = findViewById(R.id.pixel_canvas);
         commandLineView = findViewById(R.id.command_line_view);
 
