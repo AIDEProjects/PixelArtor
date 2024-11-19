@@ -15,12 +15,21 @@ import android.os.*;
 public class PixelCanvas extends View {
     private Bitmap bitmap;
     private Paint paint;
-    private int xCount = 20;
-    private int yCount = 20;
+    private int xCount = 15;
+    private int yCount = 15;
     private int minSize = 200; // wrap_content 的最小宽高 200dp
 
+	public float getCanvasWidth(){ 
+		return getWidth() * sclFactor;
+	}
+	public float getCanvasHeight(){ 
+		return getHeight() * sclFactor;
+	}
+
+	//画布数据
 	private CanvasData canvasData;
 
+	//实时绘制相关
 	private boolean drawing, isEnterDrawingTaskRunning;
 	private long drawingEnterDelay = 20;//持续按下后delay/ms进入绘制
 	public void setDrawingEnterDelay(long delay){ this.drawingEnterDelay = delay; }
@@ -33,44 +42,72 @@ public class PixelCanvas extends View {
 		AppLog.toast("绘制颜色现在为: " + (this.drawColor = drawColor));
 	}
 
+	//画布移动相关
 	private float startMovingCenterX, startMovingCenterY;//用于记录按下开始时的基准坐标
-	private float lastMovingDoubleCenterX, lastMovingDoubleCenterY;//用于计算双指移动帧步长
-	float diff=0, diffStep=0f;//记录步长及步长阈值
-	public void setDiffStep(float diffStep){ this.diffStep = diffStep; }
+	private float canvasOffsetX, canvasOffsetY;
+	public void setCanvasOffsetXY(float x, float y){
+		canvasOffsetX = x;
+		canvasOffsetY = y;
+		invalidate();
+	}
+	private int justTouchGridX, justTouchGridY;
 	private boolean isDoubleFingerMovingCanvas = true;
 	public void setDoubleFingerMovingCanvas(boolean boo){
 		AppLog.toast("双指移动画布现在为: " + (isDoubleFingerMovingCanvas = boo));
 	}
 
-	private float canvasOffsetX, canvasOffsetY;
+	//缩放相关
+	private float startSclDistance;
+	private boolean isDoubleFingerSclCanvas=true;
+	public void setDoubleFingerSclCanvas(boolean boo){
+		AppLog.toast("双指缩放画布现在为: " + (isDoubleFingerSclCanvas = boo));
+	}
+	private float sclFactor=1, startSclFactor;
+	private float[] sclFixOffset = {0, 0};
+	//设置缩放因子
+	public void setSclFactor(float sclFactor){
+		this.sclFactor = sclFactor;
+		invalidate();
+	}
+	public float[] getSclFixOffset(){
+		//sclFixOffset[0] = (1 - sclFactor) * getWidth() / 2f;
+		//sclFixOffset[1] = (1 - sclFactor) * getHeight() / 2f;
+		sclFixOffset[0] = (1 - sclFactor) * (-canvasOffsetX +  getWidth() / 2f);
+		sclFixOffset[1] = (1 - sclFactor) * (-canvasOffsetY +  getHeight() / 2f);
+		//AppLog.toastf("sclFixOffset: %.1f, %.1f", sclFixOffset[0], sclFixOffset[1]);
+		return sclFixOffset;
+	}
 
-	private int justTouchGridX, justTouchGridY;
-
+	//调试相关
 	private String actionStr="";
 	private String debugTxt2="";
 	private int pointerCount = 0;
-
 	private long flushDebugTxtInterval = 300;//ms
 	private Runnable flushDebugTxtRunnable = new Runnable(){
 		public void run(){
-			MainActivity.setDebugTxt(
-				1, 
-				"触摸操作Id: " + actionStr
-				+ "\npointerCount: " + pointerCount
-			);
-			MainActivity.setDebugTxt(
-				2, 
-				debugTxt2
-			);
-			MainActivity.setDebugTxt(
-				3, 
-				"isTouchDraw: " + isTouchDraw
-				+ ", currentDrawColor: " + drawColor
-				+ "\nisEnterDrawingTaskRunning: " + isEnterDrawingTaskRunning
-				+ ", drawing: " + drawing
-				+ ", drawingEnterDelay: " + drawingEnterDelay
-			);
-			post(this);
+			/*MainActivity.setDebugTxt(
+			 1, 
+			 "触摸操作Id: " + actionStr
+			 + "\npointerCount: " + pointerCount
+			 );
+			 MainActivity.setDebugTxt(
+			 2, 
+			 debugTxt2
+			 );
+			 MainActivity.setDebugTxt(
+			 3, 
+			 "isTouchDraw: " + isTouchDraw
+			 + ", currentDrawColor: " + drawColor
+			 + "\nisEnterDrawingTaskRunning: " + isEnterDrawingTaskRunning
+			 + ", drawing: " + drawing
+			 + ", drawingEnterDelay: " + drawingEnterDelay
+			 );*/
+			/*MainActivity.setDebugTxt(
+			 3, 
+			 "画布偏移: " + canvasOffsetX + ", " + canvasOffsetY
+			 + "\n缩放因子: " + sclFactor
+			 );*/
+			postDelayed(this, flushDebugTxtInterval);
 		}
 	};
 
@@ -99,19 +136,45 @@ public class PixelCanvas extends View {
 
 		//打印Hi
 		{
-			setPixelsColor(4, 4, 1, 11, "#FF0000");
-			setPixelsColor(4, 9, 5, 1, "#FF0000");
-			setPixelsColor(9, 4, 1, 11, "#FF0000");
-
-			setPixelsColor(14, 4, 1, 11, "#FF0000");
-			setPixelColor(14, 5, "#00000000");
+			Object[] hiList = {
+				//H
+				2, 2, 1, 11, "#FF0000",
+				2, 7, 5, 1, "#FF0000", 
+				7, 2, 1, 11, "#FF0000", 
+				//i
+				12, 2, 1, 11, "#FF0000", 
+				12, 3, 1, 1, "#00000000"
+			};
+			int paramCount = 5;
+			for (int i=0;i < hiList.length;i += paramCount){
+				setPixelsColor(
+					(int)hiList[i + 0], 
+					(int)hiList[i + 1], 
+					(int)hiList[i + 2], 
+					(int)hiList[i + 3], 
+					(String)hiList[i + 4]
+				);
+			}
 		}
 
 		//创建一个线程刷新DebugTxt
-		postDelayed(flushDebugTxtRunnable, flushDebugTxtInterval);
+		post(flushDebugTxtRunnable);
 	}
 
 
+	@Override
+	protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec)
+	{
+		super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+		/*
+		 setScaleX(sclFactor);
+		 setScaleY(sclFactor);*/
+		setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec));
+	}
+
+	private boolean scling, translating;
+	private float lastDoubleFingerDistance;
+	private float lastMovingDoubleCenterX, lastMovingDoubleCenterY;
 	//处理触摸事件
 	@Override
 	public boolean onTouchEvent(MotionEvent ev)
@@ -125,19 +188,28 @@ public class PixelCanvas extends View {
 			pointerCount = ev.getPointerCount();
 
 			//获取单指触摸的像素格坐标
-			float viewWidth = getWidth();
-			float viewHeight = getHeight();
 			float touchX = ev.getX(0);
-			float touchY = viewHeight - ev.getY(0);
+			float touchY = ev.getY(0);
+			//touchX = Math.max(0, Math.min(getCanvasWidth()-1, touchX));
+			//touchY = Math.max(0, Math.min(getCanvasHeight()-1, touchY));
 			float touchX2 = pointerCount > 1 ?ev.getX(1) : 0;
-			float touchY2 = pointerCount > 1 ?viewHeight - ev.getY(1) : 0;
-			float gridSizeX = viewWidth / xCount;
-			float gridSizeY = viewHeight / yCount;
-			int touchGridX = Math.round(touchX / gridSizeX);
-			int touchGridY = Math.round(touchY / gridSizeY);
+			float touchY2 = pointerCount > 1 ?ev.getY(1) : 0;
+			//格子缩放修正
+			float gridSizeX = getCanvasWidth() / xCount;
+			float gridSizeY = getCanvasHeight() / yCount;
 			//画布偏移修正
-			touchGridX -= Math.round(canvasOffsetX / gridSizeX);
-			touchGridY -= Math.round(canvasOffsetY / gridSizeY);
+			float fixTouchX = touchX;
+			float fixTouchY = touchY;
+			//缩放偏移
+			fixTouchX -= getSclFixOffset()[0];
+			fixTouchY -= getSclFixOffset()[1];
+			//位移偏移
+			fixTouchX -= canvasOffsetX;
+			fixTouchY -= canvasOffsetY;
+			//转为格子坐标
+			int touchGridX = (int)(fixTouchX / gridSizeX);
+			//因为y轴反转所以这里入
+			int touchGridY = (int)(fixTouchY / gridSizeY);
 
 			//单指绘制
 			{
@@ -148,7 +220,7 @@ public class PixelCanvas extends View {
 					&& pointerCount == 1 && isTouchDraw){
 					//设置延迟进入操作防止误触
 					if (!drawing && !isEnterDrawingTaskRunning){
-						AppLog.toast("开始计时: "+drawingEnterDelay);
+						//AppLog.toast("开始计时: " + drawingEnterDelay);
 						isEnterDrawingTaskRunning = true;
 						postDelayed(
 							new Runnable(){
@@ -156,9 +228,9 @@ public class PixelCanvas extends View {
 									//等待一定延迟后如果依旧为单指按下即进入绘制
 									if (pointerCount == 1){
 										drawing = true;
-										AppLog.toast("计时完成，进入成功.");
+										//AppLog.toast("计时完成，进入成功.");
 									}else{
-										AppLog.toast("计时完成，操作取消.");
+										//AppLog.toast("计时完成，操作取消.");
 									}
 									isEnterDrawingTaskRunning = false;
 								}
@@ -176,7 +248,7 @@ public class PixelCanvas extends View {
 						justTouchGridX = touchGridX;
 						justTouchGridY = touchGridY;
 					}
-					
+
 				}
 				//所有手指抬起时退出drawing
 				if (touchAction == MotionEvent.ACTION_UP){
@@ -185,57 +257,99 @@ public class PixelCanvas extends View {
 				}
 			}
 
-			//双指移动
-			//如果正在绘制则不响应移动
-			if(!drawing){
-				float movingDoubleCenterX=0, movingDoubleCenterY=0;
-				//计算二指中心：如果触摸指数为2则计算二指中心点
-				if (pointerCount == 2){
-					movingDoubleCenterX = touchX + (touchX2 - touchX) / 2;
-					movingDoubleCenterY = touchY + (touchY2 - touchY) / 2;
+			float movingDoubleCenterX=0, movingDoubleCenterY=0;
+			float doubleFingerDistance=0;
+			//如果正在绘制则不响应移动缩放
+			if (!drawing){
+				//双指移动
+				{
+					translating = false;
+					//计算二指中心：如果触摸指数为2则计算二指中心点
+					if (pointerCount == 2){
+						movingDoubleCenterX = touchX + (touchX2 - touchX) / 2;
+						movingDoubleCenterY = touchY + (touchY2 - touchY) / 2;
+						movingDoubleCenterX /= sclFactor;
+						movingDoubleCenterY /= sclFactor;
+						//movingDoubleCenterY = getHeight() -( ev.getY(0) + (ev.getY(1) - ev.getY(0)) / 2);
+					}
+					//记录基准点：第二指按下时记录中心点为基准点
+					if (touchAction == MotionEvent.ACTION_POINTER_2_DOWN){
+						startMovingCenterX = movingDoubleCenterX;
+						startMovingCenterY = movingDoubleCenterY;
+						//减去开始时画布已有偏移
+						startMovingCenterX -= canvasOffsetX;
+						startMovingCenterY -= canvasOffsetY;
+					}
+					//更新移动: 双指滑动且移动画布开启
+					if (
+						touchAction == MotionEvent.ACTION_MOVE && pointerCount == 2
+						&& isDoubleFingerMovingCanvas){
+						if (lastMovingDoubleCenterX != movingDoubleCenterX
+							|| lastMovingDoubleCenterY != movingDoubleCenterY){
+							lastMovingDoubleCenterX = movingDoubleCenterX;
+							lastMovingDoubleCenterY = movingDoubleCenterY;
+							translating = true;
+							canvasOffsetX = movingDoubleCenterX - startMovingCenterX;
+							canvasOffsetY = movingDoubleCenterY - startMovingCenterY;
+							invalidate();
+						}
+					}
 				}
-				//记录基准点：第二指按下时记录中心点为基准点
-				if (touchAction == MotionEvent.ACTION_POINTER_2_DOWN){
-					startMovingCenterX = movingDoubleCenterX;
-					startMovingCenterY = movingDoubleCenterY;
-					//减去开始时画布已有偏移
-					startMovingCenterX -= canvasOffsetX;
-					startMovingCenterY -= canvasOffsetY;
-				}
-				//更新移动: 双指滑动且移动画布开启
-				if (
-					touchAction == MotionEvent.ACTION_MOVE && pointerCount == 2
-					&& isDoubleFingerMovingCanvas){
-					diff = 
-						(movingDoubleCenterX - lastMovingDoubleCenterX)
-						* (movingDoubleCenterY - lastMovingDoubleCenterY);
-					//移动量＞移动步长
-					if (Math.abs(diff) > diffStep){
-						lastMovingDoubleCenterX = movingDoubleCenterX;
-						lastMovingDoubleCenterY = movingDoubleCenterY;
-						canvasOffsetX = movingDoubleCenterX - startMovingCenterX;
-						canvasOffsetY = movingDoubleCenterY - startMovingCenterY;
-						invalidate();
+
+				//双指缩放
+				{
+					scling = false;
+					//记录实时双指距离
+					if (pointerCount == 2){
+						float disX = touchX2 - touchX;
+						float disY = touchY2 - touchY;
+						doubleFingerDistance = (float)Math.sqrt(disX * disX + disY * disY);
+					}
+					//计算开始时双指距离与缩放因子
+					if (touchAction == MotionEvent.ACTION_POINTER_2_DOWN){
+						startSclDistance = doubleFingerDistance;
+						startSclFactor = sclFactor;
+					}
+					//更新缩放: 双指滑动且缩放画布开启
+					if (
+						touchAction == MotionEvent.ACTION_MOVE && pointerCount == 2
+						&& isDoubleFingerSclCanvas){
+						if (doubleFingerDistance != lastDoubleFingerDistance){
+							scling = true;
+							lastDoubleFingerDistance = doubleFingerDistance;
+							setSclFactor(startSclFactor + (doubleFingerDistance - startSclDistance) / startSclDistance);
+							invalidate();
+						}
 					}
 				}
 			}
-
+			MainActivity.setDebugTxt(
+				4, 
+				""
+				+ "\n操作模式："
+				+ "绘制中: " + drawing
+				+ ", 移动中: " + translating
+				+ ", 缩放中: " + scling
+			);
 			debugTxt2 = ""
-				+ "viewWidth: " + viewWidth
-				+ ", viewHeight: " + viewHeight
+				+ "viewWidth: " + getWidth()
+				+ ", viewHeight: " + getHeight()
+				+ "\ncanvasWidth: " + getCanvasWidth()
+				+ ", canvasHeight: " + getCanvasHeight()
+				+ "\nsclFactor: " + sclFactor
 				+ "\ngridSizeX: " + gridSizeX
 				+ ", gridSizeY: " + gridSizeY
 				+ "\ntouchX1: " + touchX
 				+ ", touchY1: " + touchY
-				+ "\ntouchX2: " + touchX2
-				+ ", touchY2: " + touchY2
+				+ "\nsclFixOffsetXY: " + getSclFixOffset()[0] + ", " + getSclFixOffset()[1]
+				+ "\nfixTouchX: " + fixTouchX
+				+ ", fixTouchY: " + fixTouchY
 				+ "\ntouchGridX: " + touchGridX
 				+ ", touchGridY(0): " + touchGridY
 				+ "\ncanvasOffsetX: " + canvasOffsetX
 				+ ", canvasOffsetY: " + canvasOffsetY
-				+ "\ndoubleMovingVel: " + diff
-				+ "\ndiffStep: " + diffStep
 				;
+			MainActivity.setDebugTxt(3, debugTxt2);
 		}catch (Exception e){
 			AppLog.dialog("onTouchEvent异常", Log.getStackTraceStr(e));
 		}
@@ -243,15 +357,21 @@ public class PixelCanvas extends View {
 	}
 
 
-	//设置像素点颜色
+	public float[] screenToWorldCoord(float screenX, float screenY){
+		float[] worldCoord = new float[2];
+		//位移到世界坐标
+		worldCoord[0] = screenX - canvasOffsetX;
+		worldCoord[1] = screenY - canvasOffsetY;
+
+		return worldCoord;
+	}
+
+	//设置像素点颜色, LU坐标系
     public void setPixelColor(int x, int y, String colorStr) {
-		y = yCount - y;
 		setPixelsColor(x, y, 1, 1, colorStr);
 	}
-	public void setPixelsColor(int startX, int startY, int width, int height, String colorStr) {
+	public void setPixelsColor(int startIndexX, int startIndexY, int width, int height, String colorStr) {
 		try{
-			//坐标转索引
-			int startIndexX = startX - 1, startIndexY = startY - 1;
 			//限制越界
 			startIndexX = Math.max(0, Math.min(xCount - 1, startIndexX));
 			startIndexY = Math.max(0, Math.min(yCount - 1, startIndexY));
@@ -322,8 +442,10 @@ public class PixelCanvas extends View {
 		super.onDraw(canvas);
 
 		canvas.save();
-		//画布移动
-		canvas.translate(canvasOffsetX, -canvasOffsetY);
+		//画布变换, 必须先位移在变换(否则位移量将被拉伸)
+		canvas.translate(canvasOffsetX, canvasOffsetY);
+		canvas.translate(getSclFixOffset()[0], getSclFixOffset()[1]);
+		canvas.scale(sclFactor, sclFactor);
 
 		// 获取 View 的宽高
 		int viewWidth = getWidth();
@@ -366,7 +488,6 @@ public class PixelCanvas extends View {
 
 		canvas.restore();
 	}
-
 
     // 将 dp 转换为 px
     private int dpToPx(int dp) {

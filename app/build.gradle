@@ -54,6 +54,7 @@ android {
 dependencies {
 	compile fileTree(dir: 'libs', include: ['*.jar'])
 	//compile "com.github.AIDEProjects:MethodHandleExecutor:main"
+	//compile "https://github.com/AIDEProjects/MethodHandleExecutor.git"
 	compile project(":storage/emulated/0/AppProjects/Libs/MethodHandleExecutor")
 	
 	// kotlin库如果类冲突，取消下一行注释
