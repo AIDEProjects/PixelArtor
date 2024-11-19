@@ -27,7 +27,7 @@ public class MainActivity extends Activity
 	public void set(View v){
 		int x=6;
 		int y=2;
-		int color = Color.RED;
+		String color = "#FF0000";
 		AppLog.toastf("设置像素颜色: {%d, %d, %d}", x, y, color);
 		pixelCanvas.setPixelColor(x, y, color);
 	}

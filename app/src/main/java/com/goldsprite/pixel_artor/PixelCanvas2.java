@@ -40,6 +40,10 @@ public class PixelCanvas2 extends View {
 	}
 	
 	// 设置每个像素点颜色
+    public void setPixelColor(int x, int y, String colorStr) {
+		int color= Color.parseColor(colorStr);
+		setPixelColor(x, y, color);
+	}
     public void setPixelColor(int x, int y, int color) {
 		int oldColor = paint.getColor();
         paint.setColor(color);
@@ -47,7 +51,11 @@ public class PixelCanvas2 extends View {
         invalidate(); // 刷新视图
 		paint.setColor(oldColor);
     }
-	
+
+	public void setPixelsColor(int startX, int startY, int width, int height, String colorStr) {
+		int color = Color.parseColor(colorStr);
+		setPixelsColor(startX, startY, width, height, color);
+	}
 	public void setPixelsColor(int startX, int startY, int width, int height, int color) {
 		int[] colors = new int[width * height];
 		// 填充颜色数组
