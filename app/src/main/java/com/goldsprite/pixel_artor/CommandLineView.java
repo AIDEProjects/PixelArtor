@@ -25,7 +25,7 @@ import com.goldsprite.methodhandleexecutor.core.MethodHandleExecutor;
 
 public class CommandLineView extends EditText {
 
-    private PixelCanvas2 pixelCanvas;
+    private PixelCanvas pixelCanvas;
 	
 	private MethodHandleExecutor mhExec;
 	
@@ -55,7 +55,7 @@ public class CommandLineView extends EditText {
 			});
     }
 
-    public void setPixelCanvas(PixelCanvas2 pixelCanvas) {
+    public void setPixelCanvas(PixelCanvas pixelCanvas) {
         this.pixelCanvas = pixelCanvas;
 		mhExec = new MethodHandleExecutor(pixelCanvas);
     }
@@ -77,7 +77,7 @@ public class CommandLineView extends EditText {
             args[i - 1] = parts[i];
         }
 
-		Method[] methods = PixelCanvas2.class.getMethods();
+		Method[] methods = PixelCanvas.class.getMethods();
 		for (Method method : methods) {
 			try{
 				if (method.getName().equals(methodName)) {

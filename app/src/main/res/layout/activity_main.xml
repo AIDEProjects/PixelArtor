@@ -4,8 +4,9 @@
 	android:layout_width="match_parent"
 	android:layout_height="match_parent">
 
-	<com.goldsprite.pixel_artor.PixelCanvas2
+	<com.goldsprite.pixel_artor.PixelCanvas
 		android:layout_centerInParent="true"
+		android:background="#EEE"
 		android:id="@+id/pixel_canvas"
 		android:layout_width="300dp"
 		android:layout_height="300dp"/>
@@ -18,12 +19,16 @@
 		android:imeOptions="actionDone"
 		android:hint="Enter command..."/>
 
-	<Button
-		android:visibility="gone"
+	<TextView
+		android:id="@+id/singleFloatingDebugTxt"
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
-		android:text="Button"
-		android:onClick="set"/>
+		android:layout_alignParentLeft="true"
+		android:layout_alignParentTop="true"
+		android:layout_marginLeft="3dp"
+		android:layout_marginTop="45dp"
+		android:textSize="12sp"
+		android:text="SingleFloatingDebugTxt"/>
 
 </RelativeLayout>
 
