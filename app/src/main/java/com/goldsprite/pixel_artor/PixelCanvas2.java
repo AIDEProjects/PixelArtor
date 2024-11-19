@@ -1,16 +1,17 @@
 package com.goldsprite.pixel_artor;
 
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.util.AttributeSet;
-import android.view.View;
+import android.content.*;
 import android.graphics.*;
+import android.util.*;
+import android.view.*;
+import android.view.ViewGroup.*;
 
 public class PixelCanvas2 extends View {
     private Bitmap bitmap;
+    private Paint paint;
+    private int sizeX = 20;
+    private int sizeY = 20;
+    private int minSize = 200; // wrap_content 的最小宽高 200dp
 
     public PixelCanvas2(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -23,14 +24,69 @@ public class PixelCanvas2 extends View {
     }
 
     private void init() {
-        bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
-		bitmap.eraseColor(Color.BLUE); // 设置为蓝色背景
-    }
+		// 创建 Bitmap，并填充为绿色背景
+		bitmap = Bitmap.createBitmap(sizeX, sizeY, Bitmap.Config.ARGB_8888);
+		//bitmap.eraseColor(Color.BLUE); // 设置背景色为绿色
 
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        canvas.drawBitmap(bitmap, 0, 0, null);
+		// 在 (10,10) 位置绘制红色像素点
+		bitmap.setPixel(5, 5, Color.RED);
+
+		// 初始化 Paint
+		paint = new Paint();
+		paint.setFilterBitmap(false);  // 禁用双线性过滤，启用邻近像素模式
+		paint.setAntiAlias(false);     // 禁用抗锯齿
+	}
+
+	@Override
+	protected void onDraw(Canvas canvas) {
+		super.onDraw(canvas);
+
+		// 获取 View 的宽高
+		int viewWidth = getWidth();
+		int viewHeight = getHeight();
+
+		// 检查 wrap_content 并设置最小宽高 200dp
+		if (getLayoutParams().width == LayoutParams.WRAP_CONTENT) {
+			viewWidth = Math.max(viewWidth, dpToPx(minSize));
+		}
+		if (getLayoutParams().height == LayoutParams.WRAP_CONTENT) {
+			viewHeight = Math.max(viewHeight, dpToPx(minSize));
+		}
+
+		// 拉伸 Bitmap 到 View 的宽高
+		Rect srcRect = new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
+		Rect destRect = new Rect(0, 0, viewWidth, viewHeight);
+		canvas.drawBitmap(bitmap, srcRect, destRect, paint);
+
+		// 设置网格画笔
+		Paint gridPaint = new Paint();
+		gridPaint.setColor(Color.BLACK); // 设置网格线颜色为黑色
+		gridPaint.setStyle(Paint.Style.STROKE);
+		gridPaint.setStrokeWidth(1);
+
+		// 计算每个单元格的宽度和高度
+		float cellWidth = (float) viewWidth / sizeX;
+		float cellHeight = (float) viewHeight / sizeY;
+
+		// 绘制垂直网格线
+		for (int x = 0; x <= sizeX; x++) {
+			float xPos = x * cellWidth;
+			canvas.drawLine(xPos, 0, xPos, viewHeight, gridPaint);
+		}
+
+		// 绘制水平网格线
+		for (int y = 0; y <= sizeY; y++) {
+			float yPos = y * cellHeight;
+			canvas.drawLine(0, yPos, viewWidth, yPos, gridPaint);
+		}
+	}
+	
+	
+
+    // 将 dp 转换为 px
+    private int dpToPx(int dp) {
+		return dp;
+        //return (int) (dp * getResources().getDisplayMetrics().density);
     }
 }
 
